@@ -28,6 +28,7 @@ import org.broadleafcommerce.common.util.BLCSystemProperty;
 import org.broadleafcommerce.common.util.StreamCapableTransactionalOperationAdapter;
 import org.broadleafcommerce.common.util.StreamingTransactionCapableUtil;
 import org.broadleafcommerce.common.web.BroadleafRequestContext;
+import org.broadleafcommerce.core.order.domain.NullOrderImpl;
 import org.broadleafcommerce.core.order.domain.Order;
 import org.broadleafcommerce.core.order.domain.OrderImpl;
 import org.broadleafcommerce.core.order.domain.OrderLock;
@@ -253,12 +254,21 @@ public class OrderDaoImpl implements OrderDao {
     }
 
     @Override
+    public void refresh(Order order) {
+        if (order != null && !(order instanceof NullOrderImpl)) {
+            em.refresh(order);
+        }
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public Order readNamedOrderForCustomer(final Customer customer, final String name) {
         final Query query = em.createNamedQuery("BC_READ_NAMED_ORDER_FOR_CUSTOMER");
         query.setParameter("customerId", customer.getId());
         query.setParameter("orderStatus", OrderStatus.NAMED.getType());
         query.setParameter("orderName", name);
+        query.setHint(QueryHints.HINT_CACHEABLE, true);
+        query.setHint(QueryHints.HINT_CACHE_REGION, "query.Order");
         List<Order> orders = query.getResultList();
         
         // Filter out orders that don't match the current locale (if one is set)

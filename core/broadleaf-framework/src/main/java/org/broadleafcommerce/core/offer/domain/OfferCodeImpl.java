@@ -27,6 +27,8 @@ import org.broadleafcommerce.common.extensibility.jpa.copy.DirectCopyTransform;
 import org.broadleafcommerce.common.extensibility.jpa.copy.DirectCopyTransformMember;
 import org.broadleafcommerce.common.extensibility.jpa.copy.DirectCopyTransformTypes;
 import org.broadleafcommerce.common.persistence.ArchiveStatus;
+import org.broadleafcommerce.common.persistence.DefaultPostLoaderDao;
+import org.broadleafcommerce.common.persistence.PostLoaderDao;
 import org.broadleafcommerce.common.presentation.AdminPresentation;
 import org.broadleafcommerce.common.presentation.AdminPresentationClass;
 import org.broadleafcommerce.common.presentation.AdminPresentationToOneLookup;
@@ -34,6 +36,7 @@ import org.broadleafcommerce.common.presentation.ConfigurationItem;
 import org.broadleafcommerce.common.presentation.PopulateToOneFieldsEnum;
 import org.broadleafcommerce.common.presentation.ValidationConfiguration;
 import org.broadleafcommerce.common.util.DateUtil;
+import org.broadleafcommerce.common.util.HibernateUtils;
 import org.broadleafcommerce.core.order.domain.Order;
 import org.broadleafcommerce.core.order.domain.OrderImpl;
 import org.hibernate.annotations.Cache;
@@ -42,6 +45,7 @@ import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.Index;
 import org.hibernate.annotations.Parameter;
 import org.hibernate.annotations.SQLDelete;
+import org.hibernate.proxy.HibernateProxy;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -60,6 +64,7 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToMany;
 import javax.persistence.ManyToOne;
 import javax.persistence.Table;
+import javax.persistence.Transient;
 
 @Entity
 @Table(name = "BLC_OFFER_CODE")
@@ -133,6 +138,12 @@ public class OfferCodeImpl implements OfferCode {
     @Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE, region="blOrderElements")
     protected List<Order> orders = new ArrayList<Order>();
 
+    @Transient
+    protected Offer sbClonedOffer;
+
+    @Transient
+    protected Offer deproxiedOffer;
+    
     @Override
     public Long getId() {
         return id;
@@ -145,12 +156,26 @@ public class OfferCodeImpl implements OfferCode {
 
     @Override
     public Offer getOffer() {
-        return offer;
+        if (deproxiedOffer == null) {
+            PostLoaderDao postLoaderDao = DefaultPostLoaderDao.getPostLoaderDao();
+
+            if (postLoaderDao != null && offer.getId() != null) {
+                Long id = offer.getId();
+                deproxiedOffer = postLoaderDao.find(OfferImpl.class, id);
+            } else if (offer instanceof HibernateProxy) {
+                deproxiedOffer = HibernateUtils.deproxy(offer);
+            } else {
+                deproxiedOffer = offer;
+            }
+        }
+
+        return deproxiedOffer;
     }
 
     @Override
     public void setOffer(Offer offer) {
         this.offer = offer;
+        sbClonedOffer = deproxiedOffer = null;
     }
 
     @Override

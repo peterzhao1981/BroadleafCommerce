@@ -56,6 +56,12 @@ import org.broadleafcommerce.openadmin.server.domain.PersistencePackageRequest;
 import org.broadleafcommerce.openadmin.server.security.domain.AdminSection;
 import org.broadleafcommerce.openadmin.server.security.remote.EntityOperationType;
 import org.broadleafcommerce.openadmin.server.security.remote.SecurityVerifier;
+import org.broadleafcommerce.openadmin.server.security.service.EntityFormModifier;
+import org.broadleafcommerce.openadmin.server.security.service.EntityFormModifierData;
+import org.broadleafcommerce.openadmin.server.security.service.EntityFormModifierDataPoint;
+import org.broadleafcommerce.openadmin.server.security.service.EntityFormModifierRequest;
+import org.broadleafcommerce.openadmin.server.security.service.ExceptionAwareRowLevelSecurityProvider;
+import org.broadleafcommerce.openadmin.server.security.service.EntityFormModifierConfiguration;
 import org.broadleafcommerce.openadmin.server.security.service.RowLevelSecurityService;
 import org.broadleafcommerce.openadmin.server.security.service.navigation.AdminNavigationService;
 import org.broadleafcommerce.openadmin.server.service.AdminEntityService;
@@ -396,6 +402,22 @@ public class FormBuilderServiceImpl implements FormBuilderService {
         }
         listGrid.getRowActions().add(DefaultListGridActions.REMOVE);
 
+        //If someone has replaced RowLevelSecurityService, check here to make sure the replacement implements the expected interface
+        if (rowLevelSecurityService instanceof ExceptionAwareRowLevelSecurityProvider) {
+            EntityFormModifierConfiguration entityFormModifierConfiguration = ((ExceptionAwareRowLevelSecurityProvider) rowLevelSecurityService).getUpdateDenialExceptions();
+            for (EntityFormModifierData<EntityFormModifierDataPoint> data : entityFormModifierConfiguration.getData()) {
+                for (EntityFormModifier modifier : entityFormModifierConfiguration.getModifier()) {
+                    if (modifier.isQualified(data.getModifierType())) {
+                        modifier.modifyListGrid(new EntityFormModifierRequest()
+                                .withListGrid(listGrid)
+                                .withConfiguration(data)
+                                .withCurrentUser(adminRemoteSecurityService.getPersistentAdminUser())
+                                .withRowLevelSecurityService(rowLevelSecurityService));
+                    }
+                }
+            }
+        }
+
         return listGrid;
     }
 
@@ -427,6 +449,7 @@ public class FormBuilderServiceImpl implements FormBuilderService {
             ListGridRecord record = new ListGridRecord();
             record.setListGrid(listGrid);
             record.setDirty(e.isDirty());
+            record.setEntity(e);
 
             if (e.findProperty("hasError") != null) {
                 Boolean hasError = Boolean.parseBoolean(e.findProperty("hasError").getValue());
@@ -436,6 +459,15 @@ public class FormBuilderServiceImpl implements FormBuilderService {
                 
                 if (ExtensionResultStatusType.NOT_HANDLED.equals(messageResultStatus)) {
                     record.setErrorKey("listgrid.record.error");
+                }
+            }
+
+            if (e.findProperty("progressStatus") != null) {
+                ExtensionResultStatusType messageResultStatus = listGridErrorExtensionManager
+                        .getProxy().determineStatusMessageForEntity(e, record);
+                if (ExtensionResultStatusType.NOT_HANDLED.equals(messageResultStatus)) {
+                    record.setStatus(e.findProperty("progressStatus").getValue());
+                    record.setStatusCssClass("listgrid.record.status");
                 }
             }
 
@@ -477,6 +509,28 @@ public class FormBuilderServiceImpl implements FormBuilderService {
             extensionManager.getProxy().modifyListGridRecord(className, record, e);
 
             listGrid.getRecords().add(record);
+        }
+
+        if (drs.getFirstId() != null) {
+            listGrid.setFirstId(drs.getFirstId());
+        }
+        if (drs.getLastId() != null) {
+            listGrid.setLastId(drs.getLastId());
+        }
+        if (drs.getUpperCount() != null) {
+            listGrid.setUpperCount(drs.getUpperCount());
+        }
+        if (drs.getLowerCount() != null) {
+            listGrid.setLowerCount(drs.getLowerCount());
+        }
+        if (drs.getFetchType() != null) {
+            listGrid.setFetchType(drs.getFetchType().toString());
+        }
+        if (drs.getTotalCountLessThanPageSize() != null) {
+            listGrid.setTotalCountLessThanPageSize(drs.getTotalCountLessThanPageSize());
+        }
+        if (drs.getPromptSearch() != null) {
+            listGrid.setPromptSearch(drs.getPromptSearch());
         }
 
         return listGrid;
@@ -1017,6 +1071,22 @@ public class FormBuilderServiceImpl implements FormBuilderService {
 
         if (readOnly) {
             entityForm.setReadOnly();
+            //If someone has replaced RowLevelSecurityService, check here to make sure the replacement implements the expected interface
+            if (rowLevelSecurityService instanceof ExceptionAwareRowLevelSecurityProvider) {
+                EntityFormModifierConfiguration entityFormModifierConfiguration = ((ExceptionAwareRowLevelSecurityProvider) rowLevelSecurityService).getUpdateDenialExceptions();
+                for (EntityFormModifierData<EntityFormModifierDataPoint> data : entityFormModifierConfiguration.getData()) {
+                    for (EntityFormModifier modifier : entityFormModifierConfiguration.getModifier()) {
+                        if (modifier.isQualified(data.getModifierType())) {
+                            modifier.modifyEntityForm(new EntityFormModifierRequest()
+                                    .withEntityForm(entityForm)
+                                    .withConfiguration(data)
+                                    .withCurrentUser(adminRemoteSecurityService.getPersistentAdminUser())
+                                    .withEntity(entity)
+                                    .withRowLevelSecurityService(rowLevelSecurityService));
+                        }
+                    }
+                }
+            }
         }
     }
     

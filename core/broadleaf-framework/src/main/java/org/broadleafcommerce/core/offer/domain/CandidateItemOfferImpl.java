@@ -25,17 +25,31 @@ import org.broadleafcommerce.common.copy.CreateResponse;
 import org.broadleafcommerce.common.copy.MultiTenantCopyContext;
 import org.broadleafcommerce.common.currency.util.BroadleafCurrencyUtils;
 import org.broadleafcommerce.common.money.Money;
+import org.broadleafcommerce.common.persistence.DefaultPostLoaderDao;
+import org.broadleafcommerce.common.persistence.PostLoaderDao;
+import org.broadleafcommerce.common.util.HibernateUtils;
 import org.broadleafcommerce.core.order.domain.OrderItem;
 import org.broadleafcommerce.core.order.domain.OrderItemImpl;
 import org.hibernate.annotations.Cache;
-import org.hibernate.annotations.*;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Index;
 import org.hibernate.annotations.Parameter;
+import org.hibernate.proxy.HibernateProxy;
 
-import javax.persistence.*;
-import javax.persistence.Entity;
-import javax.persistence.Table;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Inheritance;
+import javax.persistence.InheritanceType;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.Table;
+import javax.persistence.Transient;
 
 @Entity
 @Table(name = "BLC_CANDIDATE_ITEM_OFFER")
@@ -72,6 +86,9 @@ public class CandidateItemOfferImpl implements CandidateItemOffer, Cloneable {
     @Column(name = "DISCOUNTED_PRICE", precision=19, scale=5)
     private BigDecimal discountedPrice;
 
+    @Transient
+    protected Offer deproxiedOffer;
+
     @Override
     public Long getId() {
         return id;
@@ -95,6 +112,7 @@ public class CandidateItemOfferImpl implements CandidateItemOffer, Cloneable {
     @Override
     public void setOffer(Offer offer) {
         this.offer = offer;
+        deproxiedOffer = null;
     }
 
     @Override
@@ -104,7 +122,20 @@ public class CandidateItemOfferImpl implements CandidateItemOffer, Cloneable {
 
     @Override
     public Offer getOffer() {
-        return offer;
+        if (deproxiedOffer == null) {
+            PostLoaderDao postLoaderDao = DefaultPostLoaderDao.getPostLoaderDao();
+
+            if (postLoaderDao != null && offer.getId() != null) {
+                Long id = offer.getId();
+                deproxiedOffer = postLoaderDao.find(OfferImpl.class, id);
+            } else if (offer instanceof HibernateProxy) {
+                deproxiedOffer = HibernateUtils.deproxy(offer);
+            } else {
+                deproxiedOffer = offer;
+            }
+        }
+
+        return deproxiedOffer;
     }
     
     @Override

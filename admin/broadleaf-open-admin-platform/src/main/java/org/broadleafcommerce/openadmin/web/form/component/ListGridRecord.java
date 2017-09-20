@@ -22,6 +22,7 @@ package org.broadleafcommerce.openadmin.web.form.component;
 
 import org.apache.commons.lang3.StringUtils;
 import org.broadleafcommerce.common.util.BLCMessageUtils;
+import org.broadleafcommerce.openadmin.dto.Entity;
 import org.broadleafcommerce.openadmin.web.form.entity.Field;
 import org.codehaus.jettison.json.JSONObject;
 
@@ -39,9 +40,13 @@ public class ListGridRecord {
     protected List<Field> hiddenFields = new ArrayList<Field>();
     protected Boolean isDirty;
     protected Boolean isError;
+    protected String status;
+    protected String statusCssClass;
     protected String errorKey;
     protected String errorMessage;
     protected ListGridRecordIcon icon;
+    protected Boolean isReadOnly = false;
+    protected Entity entity;
 
     /**
      * Convenience map keyed by the field name. Used to guarantee field ordering with header fields within a ListGrid
@@ -166,12 +171,44 @@ public class ListGridRecord {
         this.isDirty = isDirty;
     }
 
+    public Boolean getReadOnly() {
+        return isReadOnly == null ? false : isReadOnly;
+    }
+
+    public void setReadOnly(Boolean readOnly) {
+        isReadOnly = readOnly;
+    }
+
+    public Entity getEntity() {
+        return entity;
+    }
+
+    public void setEntity(Entity entity) {
+        this.entity = entity;
+    }
+
     public Boolean getIsError() {
         return isError == null ? false : isError;
     }
 
     public void setIsError(Boolean isError) {
         this.isError = isError;
+    }
+
+    public String getStatus() {
+            return status;
+        }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getStatusCssClass() {
+        return statusCssClass;
+    }
+
+    public void setStatusCssClass(String statusCssClass) {
+        this.statusCssClass = statusCssClass;
     }
 
     public String getErrorKey() {
@@ -214,6 +251,11 @@ public class ListGridRecord {
                 .withCssClass("icon-exclamation-sign")
                 .withMessage(msgToUser)
                 .withHasDetails(true);
+        } else if (getStatus() != null) {
+            return new ListGridRecordIcon()
+                    .withCssClass(getStatusCssClass())
+                    .withMessage(getStatus())
+                    .withHasDetails(true);
         }
 
         if (getIsDirty()) {
@@ -231,7 +273,7 @@ public class ListGridRecord {
     }
     
     public Boolean getHasIcon() {
-        return icon != null || getIsError() || getIsDirty();
+        return icon != null || getIsError() || getIsDirty() || getStatus() != null;
     }
     
     public String getAltId() {

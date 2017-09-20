@@ -251,18 +251,22 @@ var BLCAdmin = (function($) {
     	},
     	
     	showMessageAsModal : function(header, message) {
-			if (BLCAdmin.currentModal() != null && BLCAdmin.currentModal().hasClass('loading-modal')) {
-			    BLCAdmin.hideCurrentModal();
-			}
-			
-    	    var $modal = getModalSkeleton();
-    	    
-    	    $modal.find('.modal-header h3').text(header);
-    	    $modal.find('.modal-body').text(message);
-    	    $modal.find('.modal-body').css('padding-bottom', '20px');
-    	    
-            this.showElementAsModal($modal);
+			this.showMessageAsModalWithCallback(header, message);
     	},
+
+		showMessageAsModalWithCallback : function(header, message, onModalHide, onModalHideArgs) {
+			if (BLCAdmin.currentModal() != null && BLCAdmin.currentModal().hasClass('loading-modal')) {
+				BLCAdmin.hideCurrentModal();
+			}
+
+			var $modal = getModalSkeleton();
+
+			$modal.find('.modal-header h3').text(header);
+			$modal.find('.modal-body').text(message);
+			$modal.find('.modal-body').css('padding-bottom', '20px');
+
+			this.showElementAsModal($modal, onModalHide, onModalHideArgs);
+		},
     	
     	showElementAsModal : function($element, onModalHide, onModalHideArgs) {
 			if (BLCAdmin.currentModal() != null && BLCAdmin.currentModal().hasClass('loading-modal')) {
@@ -636,6 +640,19 @@ var BLCAdmin = (function($) {
             });
             $(".alert-box").removeClass("success").addClass("alert");
             $(".alert-box-message").text(alertMessage);
+        },
+
+        updateAdminNavigation: function() {
+            // var url = window.location.pathname.replace("/admin", '');
+            BLC.ajax({
+                url: BLC.servletContext + '/update-navigation',
+                type: "GET",
+                error: function (error) {
+                }
+            }, function (data) {
+                var $nav = $('.secondary-nav').parent();
+                $nav.replaceWith($(data));
+            });
         }
 	};
 	
@@ -645,7 +662,9 @@ var BLCAdmin = (function($) {
 // being set on the model instead of a stack trace page when an error occurs on an AJAX request.
 BLC.defaultErrorHandler = function(data) {
     if (data.status == "403") {
-        BLCAdmin.showMessageAsModal(BLCAdmin.messages.error, BLCAdmin.messages.forbidden403);
+		BLCAdmin.showMessageAsModal(BLCAdmin.messages.error, BLCAdmin.messages.forbidden403);
+	} else if (data.status == "409") {
+		BLCAdmin.showMessageAsModal(BLCAdmin.messages.error, BLCAdmin.messages.staleContent);
     } else {
         var $data;
         
@@ -730,6 +749,11 @@ $('body').on('click', '.disabled', function(e) {
 $('body').on('change', 'input.color-picker-value', function() {
     var $this = $(this);
     $this.closest('.field-box').find('input.color-picker').spectrum('set', $this.val());
+});
+
+$('body').on('click', 'button.page-reset', function() {
+	var currentUrl = '//' + location.host + location.pathname;
+	window.location = currentUrl;
 });
 
 /**
